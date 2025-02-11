@@ -4,29 +4,49 @@ import (
 	"MerchShop/internal/application/core/domain"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
-	"log"
 )
+
+var ErrInvalidToken = fmt.Errorf("token is invalid")
 
 type TokenHandler struct {
 	secretKey []byte
 }
 
-func (h TokenHandler) Auth(tokenString string) (domain.User, error) {
-	// to the callback, providing flexibility.
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Don't forget to validate the alg is what you expect:
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-		}
+func NewTokenHandler(secretKey []byte) *TokenHandler {
+	return &TokenHandler{secretKey: secretKey}
+}
 
-		// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
+func (h TokenHandler) Auth(tokenString string) (domain.User, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, ErrInvalidToken
+		}
 		return h.secretKey, nil
 	})
 	if err != nil {
-		log.Fatal(err)
+		return domain.User{}, err
 	}
-	return domain.User{}, nil
+
+	var (
+		claims jwt.MapClaims
+		ok     bool
+		user   domain.User
+	)
+	if claims, ok = token.Claims.(jwt.MapClaims); !ok {
+		return domain.User{}, ErrInvalidToken
+	}
+	if user.ID, ok = claims["ID"].(uint); !ok {
+		return domain.User{}, ErrInvalidToken
+	}
+	if user.ID, ok = claims["Name"].(uint); !ok {
+		return domain.User{}, ErrInvalidToken
+	}
+	return user, nil
 }
 func (h TokenHandler) CreateToken(user domain.User) (string, error) {
-	return "", nil
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"ID":   user.ID,
+		"Name": user.Name,
+	})
+	return token.SignedString(h.secretKey)
 }
