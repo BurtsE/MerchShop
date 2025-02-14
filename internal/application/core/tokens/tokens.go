@@ -1,4 +1,4 @@
-package token
+package tokens
 
 import (
 	"MerchShop/internal/application/core/domain"
@@ -16,7 +16,7 @@ func NewTokenHandler(secretKey []byte) *TokenHandler {
 	return &TokenHandler{secretKey: secretKey}
 }
 
-func (h TokenHandler) Auth(tokenString string) (domain.User, error) {
+func (h TokenHandler) Parse(tokenString string) (domain.User, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
@@ -29,24 +29,27 @@ func (h TokenHandler) Auth(tokenString string) (domain.User, error) {
 
 	var (
 		claims jwt.MapClaims
-		ok     bool
 		user   domain.User
+		userID float64
+		ok     bool
 	)
 	if claims, ok = token.Claims.(jwt.MapClaims); !ok {
 		return domain.User{}, ErrInvalidToken
 	}
-	if user.ID, ok = claims["ID"].(uint); !ok {
+	if userID, ok = claims["ID"].(float64); !ok {
 		return domain.User{}, ErrInvalidToken
 	}
-	if user.ID, ok = claims["Name"].(uint); !ok {
+	user.ID = uint(userID)
+	if user.Username, ok = claims["Username"].(string); !ok {
 		return domain.User{}, ErrInvalidToken
 	}
+
 	return user, nil
 }
-func (h TokenHandler) CreateToken(user domain.User) (string, error) {
+func (h TokenHandler) Create(user domain.User) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"ID":   user.ID,
-		"Name": user.Name,
+		"ID":       user.ID,
+		"Username": user.Username,
 	})
 	return token.SignedString(h.secretKey)
 }

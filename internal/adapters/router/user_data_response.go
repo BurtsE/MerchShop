@@ -2,7 +2,7 @@ package router
 
 import "MerchShop/internal/application/core/domain"
 
-type UserData struct {
+type UserDataResponse struct {
 	Coins       int             `json:"coins"`
 	Inventory   []InventoryItem `json:"inventory"`
 	CoinHistory CoinHistory     `json:"coinHistory"`
@@ -28,7 +28,7 @@ type CoinHistory struct {
 	Sent     []SentCoin     `json:"sent"`
 }
 
-func ConvertToUserData(user domain.User, operations []domain.WalletOperation) UserData {
+func ConvertDomainToUserData(user domain.User, operations []domain.WalletOperation) UserDataResponse {
 	inventory := make([]InventoryItem, len(user.Inventory))
 	for i, item := range user.Inventory {
 		inventory[i] = InventoryItem{
@@ -44,19 +44,18 @@ func ConvertToUserData(user domain.User, operations []domain.WalletOperation) Us
 		switch user.ID {
 		case op.Receiver.ID:
 			received = append(received, ReceivedCoin{
-				FromUser: op.Sender.Name,
+				FromUser: op.Sender.Username,
 				Amount:   op.Value,
 			})
 		case op.Sender.ID:
 			sent = append(sent, SentCoin{
-				ToUser: op.Receiver.Name,
+				ToUser: op.Receiver.Username,
 				Amount: op.Value,
 			})
 		}
 	}
 
-	// Создаем и возвращаем UserData
-	return UserData{
+	return UserDataResponse{
 		Coins:     user.Coins,
 		Inventory: inventory,
 		CoinHistory: CoinHistory{

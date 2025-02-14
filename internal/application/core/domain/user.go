@@ -2,13 +2,13 @@ package domain
 
 type User struct {
 	ID           uint
-	Name         string
-	Login        string
+	Username     string
 	PasswordHash string
 	Coins        int
 	Inventory    Inventory
 }
-type Inventory []struct {
+type Inventory []Items
+type Items struct {
 	Type     string
 	Quantity int
 }
