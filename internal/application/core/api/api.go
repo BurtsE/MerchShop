@@ -40,6 +40,9 @@ func (a Application) SendCoin(sender domain.User, receiverName string, amount in
 	if !sender.Has(amount) {
 		return domain.WalletOperation{}, fmt.Errorf("sender does not have enough money")
 	}
+	if sender.Username == receiverName {
+		return domain.WalletOperation{}, fmt.Errorf("can`t send money to yourself")
+	}
 	receiver, err := a.db.UserByName(ctx, receiverName)
 	if err != nil {
 		return domain.WalletOperation{}, fmt.Errorf("getting user to send to: %v", err)
