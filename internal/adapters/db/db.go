@@ -97,6 +97,7 @@ func (a DBAdapter) UserWallet(ctx context.Context, user domain.User) ([]domain.W
 	if err != nil {
 		return nil, fmt.Errorf("getting sent coins: %w", err)
 	}
+	defer rows.Close()
 	for rows.Next() {
 		op := domain.WalletOperation{Sender: user}
 		err = rows.Scan(&op.ID, &op.Receiver.ID, &op.Value, &op.Receiver.Username, &op.Receiver.PasswordHash, &op.Receiver.Coins)
@@ -115,10 +116,11 @@ func (a DBAdapter) UserWallet(ctx context.Context, user domain.User) ([]domain.W
 	if err != nil {
 		return nil, fmt.Errorf("getting received coins: %w", err)
 	}
+	defer rows.Close()
 
 	for rows.Next() {
-		op := domain.WalletOperation{Sender: user}
-		err = rows.Scan(&op.ID, &op.Receiver.ID, &op.Value, &op.Receiver.Username, &op.Receiver.PasswordHash, &op.Receiver.Coins)
+		op := domain.WalletOperation{Receiver: user}
+		err = rows.Scan(&op.ID, &op.Sender.ID, &op.Value, &op.Sender.Username, &op.Sender.PasswordHash, &op.Sender.Coins)
 		if err != nil {
 			return nil, fmt.Errorf("scanning received coins: %w", err)
 		}
@@ -138,6 +140,7 @@ func (a DBAdapter) UserInventory(ctx context.Context, user domain.User) (domain.
 	if err != nil {
 		return nil, fmt.Errorf("getting user inventory: %w", err)
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		items := domain.Items{}
