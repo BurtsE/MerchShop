@@ -1,0 +1,41 @@
+services:
+  test_database:
+    env_file: "../../test.env"
+    image: postgres
+    restart: always
+    shm_size: 128mb
+#    environment:
+#      - POSTGRES_USER=test_user
+#      - POSTGRES_PASSWORD="password"
+#      - POSTGRES_DB=test_db
+    volumes:
+      - ../../sql/tables.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: pg_isready -U admin -d merch_shop
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  test_shop:
+    depends_on:
+      test_database:
+        condition: service_healthy
+    links:
+      - test_database
+    env_file: "../../test.env"
+#    environment:
+#      - POSTGRES_USER=test_user
+#      - POSTGRES_PASSWORD="password"
+#      - POSTGRES_DB=test_db
+#      - POSTGRES_PORT=5432
+#      - SECRET_KEY=test-key
+#      - ENV=development
+#      - DATABASE_HOST=test_database
+#      - APPLICATION_PORT=8080
+    build:
+      context:    ../../
+      dockerfile: ./e2e/resources/Dockerfile
+    restart: always
+
+    ports:
+      - "8080:8080"
