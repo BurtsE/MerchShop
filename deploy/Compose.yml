@@ -1,28 +1,17 @@
 services:
   database:
+    env_file: "../.env"
     image: postgres
     restart: always
     shm_size: 128mb
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - ../sql/tables.sql:/docker-entrypoint-initdb.d/init.sql
   shop:
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - SECRET_KEY=${SECRET_KEY}
-      - ENV=development
-      - DATABASE_HOST=database
-      - APPLICATION_PORT=8000
+    env_file: "../.env"
     build:
       context:    ../
       dockerfile: ./deploy/Dockerfile
     restart: always
 
     ports:
-      - "8080:8000"
+      - "8080:8080"

@@ -23,6 +23,6 @@ ENV POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 
 COPY --from=builder /build/app .
 
-EXPOSE 8000
+EXPOSE 8080
 
 CMD ["./app"]
