@@ -1,0 +1,13 @@
+explain analyze
+SELECT wallet_operations.id, receiver_id, "value", username, password_hash, coins
+		FROM wallet_operations LEFT JOIN users on(receiver_id=users.id)
+			WHERE sender_id = 1;
+
+
+
+explain analyze
+SELECT A.id, receiver_id, A.value, username, password_hash, coins
+		FROM  (SELECT id, receiver_id, value
+		       FROM wallet_operations
+		            WHERE sender_id = 1) as A
+		LEFT JOIN users on(receiver_id=users.id);

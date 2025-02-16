@@ -58,7 +58,8 @@ func (a *DBAdapter) User(ctx context.Context, userID uint) (domain.User, error) 
 	`
 	err := a.db.QueryRow(ctx, query, userID).Scan(&user.Username, &user.PasswordHash, &user.Coins)
 	if err != nil {
-		return domain.User{}, fmt.Errorf("getting user: %w", err)
+
+		return domain.User{}, fmt.Errorf("getting user by id: %w", err)
 	}
 	user.ID = userID
 	return user, nil
@@ -75,7 +76,7 @@ func (a *DBAdapter) UserByName(ctx context.Context, username string) (domain.Use
 	`
 	err := a.db.QueryRow(ctx, query, username).Scan(&user.ID, &user.PasswordHash, &user.Coins)
 	if err != nil {
-		return domain.User{}, fmt.Errorf("getting user: %w", err)
+		return domain.User{}, fmt.Errorf("getting user by name: %w", err)
 	}
 	user.Username = username
 	return user, nil
@@ -158,7 +159,7 @@ func (a *DBAdapter) UserInventory(ctx context.Context, user domain.User) (domain
 	`
 	rows, err := a.db.Query(ctx, query, user.ID)
 	if err != nil {
-		return nil, fmt.Errorf("getting user inventory: %w", err)
+		return nil, fmt.Errorf("getting user`s inventory: %w", err)
 	}
 	defer rows.Close()
 
