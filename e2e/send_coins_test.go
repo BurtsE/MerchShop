@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	tc "github.com/testcontainers/testcontainers-go/modules/compose"
-	"io"
 	"net/http"
 	"testing"
 )
@@ -41,7 +40,7 @@ func TestSendCoins(t *testing.T) {
 	}
 	req.Close = true
 	token, err := getToken(t, client, "username")
-	t.Log(token, err)
+	assert.NoError(t, err)
 	// Добавляем заголовок авторизации
 	req.Header.Add("Authorization", "Bearer "+token)
 
@@ -55,6 +54,4 @@ func TestSendCoins(t *testing.T) {
 
 	// Проверяем статус код
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	respBody, _ := io.ReadAll(resp.Body)
-	t.Log(string(respBody))
 }

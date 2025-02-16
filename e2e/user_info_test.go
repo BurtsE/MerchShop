@@ -1,10 +1,7 @@
 package e2e
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	tc "github.com/testcontainers/testcontainers-go/modules/compose"
@@ -12,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestBuyItem2(t *testing.T) {
+func TestUserInfo(t *testing.T) {
 	compose, err := tc.NewDockerCompose("resources/docker-compose.yml")
 	require.NoError(t, err, "NewDockerComposeAPI()")
 
@@ -22,9 +19,13 @@ func TestBuyItem2(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	require.NoError(t, compose.Up(ctx, tc.Wait(true)), "compose.Up()")
+
 	// Создаем HTTP-клиент
 	client := &http.Client{}
-	URI := "http://localhost:8080/api/buy/t-shirt"
+	// Создание пользователя для отправки
+	userToken, err := getToken(t, client, "username")
+	assert.NoError(t, err)
+	URI := "http://localhost:8080/api/info"
 	// Создаем запрос
 	req, err := http.NewRequest(http.MethodGet, URI, nil)
 	assert.NoError(t, err)
@@ -32,11 +33,8 @@ func TestBuyItem2(t *testing.T) {
 		return
 	}
 	req.Close = true
-
-	token, err := getToken(t, client, "username")
-	assert.NoError(t, err)
 	// Добавляем заголовок авторизации
-	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Authorization", "Bearer "+userToken)
 
 	// Выполняем запрос
 	resp, err := client.Do(req)
@@ -48,30 +46,4 @@ func TestBuyItem2(t *testing.T) {
 
 	// Проверяем статус код
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-}
-
-func getToken(t *testing.T, client *http.Client, username string) (string, error) {
-	URI := "http://localhost:8080/api/auth"
-	// Создаем запрос
-	body := bytes.NewBuffer([]byte(fmt.Sprintf(`{
-    	"username": "%s",
-    	"password": "2020"
-	}`, username)))
-	t.Log(body)
-	req, err := http.NewRequest(http.MethodPost, URI, body)
-	if err != nil {
-		return "", err
-	}
-	req.Close = true
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	res := map[string]string{}
-	err = json.NewDecoder(resp.Body).Decode(&res)
-	if err != nil {
-		return "", err
-	}
-	return res["token"], nil
 }
