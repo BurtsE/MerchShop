@@ -1,16 +1,19 @@
 services:
   test_database:
-    env_file: "../../test.env"
+    env_file: "./.env"
     image: postgres
     restart: always
     shm_size: 128mb
     volumes:
       - ../../sql/tables.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: pg_isready -U admin -d merch_shop
-      interval: 10s
-      timeout: 3s
-      retries: 3
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U $POSTGRES_USER -d $POSTGRES_DB'" ]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    networks:
+      - internal
 
   test_shop:
     depends_on:
@@ -18,7 +21,7 @@ services:
         condition: service_healthy
     links:
       - test_database
-    env_file: "../../test.env"
+    env_file: "./.env"
     build:
       context:    ../../
       dockerfile: ./e2e/resources/Dockerfile
@@ -26,3 +29,7 @@ services:
 
     ports:
       - "8080:8080"
+    networks:
+      - internal
+networks:
+  internal:

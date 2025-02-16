@@ -32,6 +32,7 @@ func TestBuyItem2(t *testing.T) {
 	if err != nil {
 		return
 	}
+	req.Close = true
 
 	token, err := getToken(t, client, "username")
 	t.Log(token, err)
@@ -59,19 +60,25 @@ func getToken(t *testing.T, client *http.Client, username string) (string, error
     	"username": "%s",
     	"password": "2020"
 	}`, username)))
+	t.Log(body)
 	req, err := http.NewRequest(http.MethodPost, URI, body)
 	if err != nil {
+		t.Log(body)
 		return "", err
 	}
+	req.Close = true
 	resp, err := client.Do(req)
 	if err != nil {
+		t.Log(req)
 		return "", err
 	}
 	defer resp.Body.Close()
+	t.Log(resp.StatusCode)
 	res := map[string]string{}
 	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
 		return "", err
 	}
+	t.Log(res)
 	return res["token"], nil
 }

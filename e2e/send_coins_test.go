@@ -29,7 +29,6 @@ func TestSendCoins(t *testing.T) {
 	receiverName := "receiver"
 	_, err = getToken(t, client, receiverName)
 	assert.NoError(t, err)
-
 	URI := "http://localhost:8080/api/sendCoin"
 	// Создаем запрос
 	req, err := http.NewRequest(http.MethodPost, URI, bytes.NewBuffer([]byte(fmt.Sprintf(`{
@@ -40,7 +39,7 @@ func TestSendCoins(t *testing.T) {
 	if err != nil {
 		return
 	}
-
+	req.Close = true
 	token, err := getToken(t, client, "username")
 	t.Log(token, err)
 	// Добавляем заголовок авторизации
