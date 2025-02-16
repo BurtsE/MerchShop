@@ -101,9 +101,11 @@ func (a *DBAdapter) UserWallet(ctx context.Context, user domain.User) ([]domain.
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	query := `
-		SELECT wallet_operations.id, receiver_id, "value", username, password_hash, coins
-		FROM wallet_operations LEFT JOIN users on(receiver_id=users.id)
-			WHERE sender_id = $1;
+		SELECT A.id, receiver_id, A.value, username, password_hash, coins
+		FROM  (SELECT id, receiver_id, value
+		       FROM wallet_operations
+		            WHERE sender_id = $1) as A
+		LEFT JOIN users on(receiver_id=users.id);
 	`
 	rows, err := a.db.Query(ctx, query, user.ID)
 	if err != nil {
@@ -122,11 +124,12 @@ func (a *DBAdapter) UserWallet(ctx context.Context, user domain.User) ([]domain.
 		return nil, fmt.Errorf("scanning sent coins: %w", err)
 	}
 	rows.Close()
-
 	query = `
-		SELECT wallet_operations.id, sender_id, "value", username, password_hash, coins
-		FROM wallet_operations LEFT JOIN users on(sender_id=users.id)
-			WHERE receiver_id = $1;
+		SELECT A.id, sender_id, A.value, username, password_hash, coins
+		FROM  (SELECT id, sender_id, value
+		       FROM wallet_operations
+		            WHERE receiver_id = $1) as A
+		LEFT JOIN users on(sender_id=users.id);
 	`
 	rows, err = a.db.Query(ctx, query, user.ID)
 	if err != nil {
