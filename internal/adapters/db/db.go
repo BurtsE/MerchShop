@@ -274,3 +274,7 @@ func (a *DBAdapter) SendCoins(ctx context.Context, from domain.User, to domain.U
 	}
 	return operationID, nil
 }
+
+func (a *DBAdapter) Close() {
+	a.db.Close()
+}

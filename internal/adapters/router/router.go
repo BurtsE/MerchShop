@@ -20,10 +20,10 @@ func NewRouter(app ports.APIPort, port string) *Router {
 		Addr:    fmt.Sprintf(":%s", port),
 		Handler: http.DefaultServeMux,
 	}
-	http.Handle("GET /api/info", r.WithAuth(r.UserInfo))
-	http.HandleFunc("GET /api/buy/{item}", r.WithAuth(r.BuyItem))
+	http.Handle("GET /api/info", r.WithAuth(r.userInfo))
+	http.HandleFunc("GET /api/buy/{item}", r.WithAuth(r.buyItem))
 	http.HandleFunc("POST /api/sendCoin", r.WithAuth(r.sendCoin))
-	http.HandleFunc("POST /api/auth", r.Auth)
+	http.HandleFunc("POST /api/auth", r.auth)
 	//r.srv.Handler = Logger(r.srv.Handler)
 	return r
 }
@@ -32,7 +32,7 @@ func (r *Router) Start() error {
 	return r.srv.ListenAndServe()
 }
 
-func (r *Router) UserInfo(w http.ResponseWriter, req *http.Request) {
+func (r *Router) userInfo(w http.ResponseWriter, req *http.Request) {
 	var (
 		user domain.User
 		ok   bool
@@ -51,7 +51,7 @@ func (r *Router) UserInfo(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(data)
 }
 
-func (r *Router) BuyItem(w http.ResponseWriter, req *http.Request) {
+func (r *Router) buyItem(w http.ResponseWriter, req *http.Request) {
 	var (
 		user domain.User
 		ok   bool
@@ -93,7 +93,7 @@ func (r *Router) sendCoin(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (r *Router) Auth(w http.ResponseWriter, req *http.Request) {
+func (r *Router) auth(w http.ResponseWriter, req *http.Request) {
 	userData := UserCredentials{}
 	decoder := json.NewDecoder(req.Body)
 
