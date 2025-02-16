@@ -6,8 +6,20 @@ services:
     shm_size: 2gb
     volumes:
       - ../sql/tables.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U $POSTGRES_USER -d $POSTGRES_DB'" ]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    networks:
+      - internal
+
   shop:
     env_file: "../.env"
+    depends_on:
+      database:
+        condition: service_healthy
     build:
       context:    ../
       dockerfile: ./deploy/Dockerfile
@@ -15,3 +27,7 @@ services:
 
     ports:
       - "8080:8080"
+    networks:
+      - internal
+networks:
+  internal:

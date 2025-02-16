@@ -2,13 +2,10 @@ FROM golang:1.23-alpine AS builder
 
 WORKDIR /build
 
-
-
 ADD go.mod .
 ADD go.sum .
 RUN go mod download
 RUN pwd
-
 
 COPY cmd cmd
 COPY internal internal
