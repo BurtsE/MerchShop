@@ -5,30 +5,34 @@ import (
 	"MerchShop/internal/ports"
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"time"
 )
 
-const DefaultCoinsValue = 1000
+const (
+	DefaultCoinsValue = 1000
+	timeout           = time.Second * 2
+)
 
 var _ ports.DBPort = (*DBAdapter)(nil)
 
 type DBAdapter struct {
-	db *pgx.Conn
+	db *pgxpool.Pool
 }
 
 func NewDBAdapter(source string) (*DBAdapter, error) {
 	ctx := context.Background()
-	db, err := pgx.Connect(ctx, source)
+	pool, err := pgxpool.New(ctx, source)
 	if err != nil {
 		return nil, fmt.Errorf("opening db connection: %w", err)
 	}
-	if err = db.Ping(ctx); err != nil {
+	if err = pool.Ping(ctx); err != nil {
 		return nil, fmt.Errorf("opening db connection: %w", err)
 	}
-	return &DBAdapter{db: db}, nil
+	return &DBAdapter{db: pool}, nil
 }
 
-func (a DBAdapter) CreateUser(ctx context.Context, user domain.User) (domain.User, error) {
+func (a *DBAdapter) CreateUser(ctx context.Context, user domain.User) (domain.User, error) {
 	query := `
 		INSERT INTO users (username, password_hash, coins)
 		VALUES ($1, $2, $3)
@@ -41,7 +45,7 @@ func (a DBAdapter) CreateUser(ctx context.Context, user domain.User) (domain.Use
 	return user, nil
 }
 
-func (a DBAdapter) User(ctx context.Context, userID uint) (domain.User, error) {
+func (a *DBAdapter) User(ctx context.Context, userID uint) (domain.User, error) {
 	user := domain.User{}
 	query := `
 		SELECT username, password_hash, coins
@@ -56,7 +60,7 @@ func (a DBAdapter) User(ctx context.Context, userID uint) (domain.User, error) {
 	return user, nil
 }
 
-func (a DBAdapter) UserByName(ctx context.Context, username string) (domain.User, error) {
+func (a *DBAdapter) UserByName(ctx context.Context, username string) (domain.User, error) {
 	user := domain.User{}
 	query := `
 		SELECT id, password_hash, coins
@@ -71,7 +75,7 @@ func (a DBAdapter) UserByName(ctx context.Context, username string) (domain.User
 	return user, nil
 }
 
-func (a DBAdapter) UpdateUser(ctx context.Context, user domain.User) error {
+func (a *DBAdapter) UpdateUser(ctx context.Context, user domain.User) error {
 	query := `
 		UPDATE users username, password_hash, coins
 		FROM users 
@@ -85,7 +89,7 @@ func (a DBAdapter) UpdateUser(ctx context.Context, user domain.User) error {
 	return nil
 }
 
-func (a DBAdapter) UserWallet(ctx context.Context, user domain.User) ([]domain.WalletOperation, error) {
+func (a *DBAdapter) UserWallet(ctx context.Context, user domain.User) ([]domain.WalletOperation, error) {
 	var wallet = make([]domain.WalletOperation, 0)
 
 	query := `
@@ -106,6 +110,10 @@ func (a DBAdapter) UserWallet(ctx context.Context, user domain.User) ([]domain.W
 		}
 		wallet = append(wallet, op)
 	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("scanning sent coins: %w", err)
+	}
+	rows.Close()
 
 	query = `
 		SELECT wallet_operations.id, sender_id, "value", username, password_hash, coins
@@ -126,10 +134,13 @@ func (a DBAdapter) UserWallet(ctx context.Context, user domain.User) ([]domain.W
 		}
 		wallet = append(wallet, op)
 	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("scanning received coins: %w", err)
+	}
 	return wallet, nil
 }
 
-func (a DBAdapter) UserInventory(ctx context.Context, user domain.User) (domain.Inventory, error) {
+func (a *DBAdapter) UserInventory(ctx context.Context, user domain.User) (domain.Inventory, error) {
 	var inventory = make(domain.Inventory, 0)
 	query := `
 		SELECT item_name, amount
@@ -150,10 +161,13 @@ func (a DBAdapter) UserInventory(ctx context.Context, user domain.User) (domain.
 		}
 		inventory = append(inventory, items)
 	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("scanning user inventory: %w", err)
+	}
 	return inventory, nil
 }
 
-func (a DBAdapter) BuyItem(ctx context.Context, user domain.User, item string) (uint, error) {
+func (a *DBAdapter) BuyItem(ctx context.Context, user domain.User, item string) (uint, error) {
 	var (
 		inventoryID uint
 		itemCost    int
@@ -203,7 +217,7 @@ func (a DBAdapter) BuyItem(ctx context.Context, user domain.User, item string) (
 	return inventoryID, nil
 }
 
-func (a DBAdapter) SendCoins(ctx context.Context, from domain.User, to domain.User, amount int) (uint, error) {
+func (a *DBAdapter) SendCoins(ctx context.Context, from domain.User, to domain.User, amount int) (uint, error) {
 	var operationID uint
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
