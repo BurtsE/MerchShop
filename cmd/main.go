@@ -6,18 +6,25 @@ import (
 	"MerchShop/internal/application/core/api"
 	"MerchShop/internal/application/core/tokens"
 	"MerchShop/internal/config"
+	"context"
+	"fmt"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
 func main() {
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-	if config.GetEnv() == "development" {
-		log.SetLevel(log.DebugLevel)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		c := make(chan os.Signal, 1) // we need to reserve to buffer size 1, so the notifier are not blocked
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+		<-c
+		cancel()
+	}()
 	tokenHandler := tokens.NewTokenHandler([]byte(config.GetSecretKey()))
 	dbAdapter, err := db.NewDBAdapter(config.GetDataSourceURL())
 	if err != nil {
@@ -26,14 +33,17 @@ func main() {
 	app := api.NewApplication(dbAdapter, tokenHandler)
 	port := config.GetApplicationPort()
 	rtr := router.NewRouter(app, port)
-	go func() {
-		log.Printf("Server is starting on :%s...", port)
-		err := rtr.Start()
-		if err != nil {
-			log.Fatalf("Server error: %v", err)
-		}
-	}()
-	<-stop
+	g, gCtx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return rtr.Start()
+	})
+	g.Go(func() error {
+		<-gCtx.Done()
+		return rtr.Stop(context.Background())
+	})
+	if err := g.Wait(); err != nil {
+		fmt.Printf("exit reason: %s \n", err)
+	}
 	log.Println("closing database connection...")
 	dbAdapter.Close()
 	log.Println("finished")

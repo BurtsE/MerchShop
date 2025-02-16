@@ -3,6 +3,7 @@ package router
 import (
 	"MerchShop/internal/application/core/domain"
 	"MerchShop/internal/ports"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -30,6 +31,9 @@ func NewRouter(app ports.APIPort, port string) *Router {
 
 func (r *Router) Start() error {
 	return r.srv.ListenAndServe()
+}
+func (r *Router) Stop(ctx context.Context) error {
+	return r.srv.Shutdown(ctx)
 }
 
 func (r *Router) userInfo(w http.ResponseWriter, req *http.Request) {
