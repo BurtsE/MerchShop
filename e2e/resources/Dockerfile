@@ -15,8 +15,6 @@ RUN GOOS=linux go build -o app ./cmd
 FROM golang:1.23-alpine
 WORKDIR /root/
 
-ENV POSTGRES_USER=admin
-ENV POSTGRES_PASSWORD=123
 
 COPY --from=builder /build/app .
 
