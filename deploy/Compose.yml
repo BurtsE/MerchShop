@@ -3,7 +3,7 @@ services:
     env_file: "../.env"
     image: postgres
     restart: always
-    shm_size: 128mb
+    shm_size: 2gb
     volumes:
       - ../sql/tables.sql:/docker-entrypoint-initdb.d/init.sql
   shop:
