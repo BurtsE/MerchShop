@@ -33,6 +33,8 @@ func NewDBAdapter(source string) (*DBAdapter, error) {
 }
 
 func (a *DBAdapter) CreateUser(ctx context.Context, user domain.User) (domain.User, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	query := `
 		INSERT INTO users (username, password_hash, coins)
 		VALUES ($1, $2, $3)
@@ -46,6 +48,8 @@ func (a *DBAdapter) CreateUser(ctx context.Context, user domain.User) (domain.Us
 }
 
 func (a *DBAdapter) User(ctx context.Context, userID uint) (domain.User, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	user := domain.User{}
 	query := `
 		SELECT username, password_hash, coins
@@ -61,6 +65,8 @@ func (a *DBAdapter) User(ctx context.Context, userID uint) (domain.User, error) 
 }
 
 func (a *DBAdapter) UserByName(ctx context.Context, username string) (domain.User, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	user := domain.User{}
 	query := `
 		SELECT id, password_hash, coins
@@ -91,7 +97,8 @@ func (a *DBAdapter) UpdateUser(ctx context.Context, user domain.User) error {
 
 func (a *DBAdapter) UserWallet(ctx context.Context, user domain.User) ([]domain.WalletOperation, error) {
 	var wallet = make([]domain.WalletOperation, 0)
-
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	query := `
 		SELECT wallet_operations.id, receiver_id, "value", username, password_hash, coins
 		FROM wallet_operations LEFT JOIN users on(receiver_id=users.id)
@@ -142,6 +149,8 @@ func (a *DBAdapter) UserWallet(ctx context.Context, user domain.User) ([]domain.
 
 func (a *DBAdapter) UserInventory(ctx context.Context, user domain.User) (domain.Inventory, error) {
 	var inventory = make(domain.Inventory, 0)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	query := `
 		SELECT item_name, amount
 		FROM inventory 
@@ -172,6 +181,8 @@ func (a *DBAdapter) BuyItem(ctx context.Context, user domain.User, item string) 
 		inventoryID uint
 		itemCost    int
 	)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("starting transaction: %w", err)
@@ -219,6 +230,8 @@ func (a *DBAdapter) BuyItem(ctx context.Context, user domain.User, item string) 
 
 func (a *DBAdapter) SendCoins(ctx context.Context, from domain.User, to domain.User, amount int) (uint, error) {
 	var operationID uint
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("starting transaction: %w", err)
