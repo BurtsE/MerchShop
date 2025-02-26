@@ -108,11 +108,13 @@ func (a Application) Authorize(ctx context.Context, username, password string) (
 func (a Application) Authenticate(ctx context.Context, token string) (domain.User, error) {
 	tokenUser, err := a.token.Parse(token)
 	if err != nil {
-		return domain.User{}, fmt.Errorf("parcing tokens: %v", err)
+		log.Debugf("parsing token: %v", err)
+		return domain.User{}, errWithToken
 	}
-	user, err := a.db.User(context.Background(), tokenUser.ID)
+	user, err := a.db.User(ctx, tokenUser.ID)
 	if err != nil {
-		return domain.User{}, fmt.Errorf("getting user: %v", err)
+		log.Debugf("getting user: %v", err)
+		return domain.User{}, errWithToken
 	}
 	//err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(tokenUser.PasswordHash))
 	//if err != nil {
