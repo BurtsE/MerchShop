@@ -6,12 +6,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"time"
 )
 
 const (
 	DefaultCoinsValue = 1000
-	timeout           = time.Second * 2
 )
 
 var _ ports.DBPort = (*DBAdapter)(nil)

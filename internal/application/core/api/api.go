@@ -6,7 +6,13 @@ import (
 	"MerchShop/internal/ports"
 	"context"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
+)
+
+var (
+	errWithDB    = fmt.Errorf("database error")
+	errWithToken = fmt.Errorf("token error")
 )
 
 var _ ports.APIPort = (*Application)(nil)
@@ -24,11 +30,13 @@ func NewApplication(db ports.DBPort, handler *tokens.TokenHandler) *Application 
 func (a Application) Info(ctx context.Context, user domain.User) (domain.Inventory, []domain.WalletOperation, error) {
 	inventory, err := a.db.UserInventory(ctx, user)
 	if err != nil {
-		return domain.Inventory{}, nil, fmt.Errorf("info getting inventory: %v", err)
+		log.Debugf("info getting inventory: %v", err)
+		return domain.Inventory{}, nil, errWithDB
 	}
 	operations, err := a.db.UserWallet(ctx, user)
 	if err != nil {
-		return domain.Inventory{}, nil, fmt.Errorf("getting operations: %v", err)
+		log.Debugf("getting operations: %v", err)
+		return domain.Inventory{}, nil, errWithDB
 	}
 	user.Inventory = inventory
 	return inventory, operations, nil
@@ -46,11 +54,13 @@ func (a Application) SendCoin(ctx context.Context, sender domain.User, receiverN
 	}
 	receiver, err := a.db.UserByName(ctx, receiverName)
 	if err != nil {
-		return domain.WalletOperation{}, fmt.Errorf("getting user to send to: %v", err)
+		log.Debugf("getting user to send to: %v", err)
+		return domain.WalletOperation{}, errWithDB
 	}
 	id, err := a.db.SendCoins(context.Background(), sender, receiver, amount)
 	if err != nil {
-		return domain.WalletOperation{}, fmt.Errorf("sending coins: %v", err)
+		log.Debugf("sending coins: %v", err)
+		return domain.WalletOperation{}, errWithDB
 	}
 	return domain.WalletOperation{
 		ID:       id,
@@ -63,7 +73,8 @@ func (a Application) SendCoin(ctx context.Context, sender domain.User, receiverN
 func (a Application) BuyItem(ctx context.Context, user domain.User, item string) error {
 	_, err := a.db.BuyItem(ctx, user, item)
 	if err != nil {
-		return fmt.Errorf("buy item: %v", err)
+		log.Debugf("\"buy item: %v", err)
+		return errWithDB
 	}
 	return nil
 }
@@ -74,7 +85,8 @@ func (a Application) Authorize(ctx context.Context, username, password string) (
 	}
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return "", fmt.Errorf("hashing password: %v", err)
+		log.Debugf("hashing password: %v", err)
+		return "", fmt.Errorf("problem with password")
 	}
 	userCreation := domain.User{
 		Username:     username,
@@ -82,11 +94,13 @@ func (a Application) Authorize(ctx context.Context, username, password string) (
 	}
 	user, err := a.db.CreateUser(ctx, userCreation)
 	if err != nil {
-		return "", err
+		log.Debugf("creating user: %v", err)
+		return "", errWithDB
 	}
 	token, err := a.token.Create(user)
 	if err != nil {
-		return "", fmt.Errorf("creating tokens: %v", err)
+		log.Debugf("creating token: %v", err)
+		return "", fmt.Errorf("could not create token")
 	}
 	return token, nil
 }
