@@ -21,8 +21,7 @@ func NewApplication(db ports.DBPort, handler *tokens.TokenHandler) *Application 
 	return app
 }
 
-func (a Application) Info(user domain.User) (domain.Inventory, []domain.WalletOperation, error) {
-	ctx := context.Background()
+func (a Application) Info(ctx context.Context, user domain.User) (domain.Inventory, []domain.WalletOperation, error) {
 	inventory, err := a.db.UserInventory(ctx, user)
 	if err != nil {
 		return domain.Inventory{}, nil, fmt.Errorf("info getting inventory: %v", err)
@@ -35,8 +34,7 @@ func (a Application) Info(user domain.User) (domain.Inventory, []domain.WalletOp
 	return inventory, operations, nil
 }
 
-func (a Application) SendCoin(sender domain.User, receiverName string, amount int) (domain.WalletOperation, error) {
-	ctx := context.Background()
+func (a Application) SendCoin(ctx context.Context, sender domain.User, receiverName string, amount int) (domain.WalletOperation, error) {
 	if !sender.Has(amount) {
 		return domain.WalletOperation{}, fmt.Errorf("sender does not have enough money")
 	}
@@ -62,15 +60,15 @@ func (a Application) SendCoin(sender domain.User, receiverName string, amount in
 	}, nil
 }
 
-func (a Application) BuyItem(user domain.User, item string) error {
-	_, err := a.db.BuyItem(context.Background(), user, item)
+func (a Application) BuyItem(ctx context.Context, user domain.User, item string) error {
+	_, err := a.db.BuyItem(ctx, user, item)
 	if err != nil {
 		return fmt.Errorf("buy item: %v", err)
 	}
 	return nil
 }
 
-func (a Application) Authorize(username, password string) (string, error) {
+func (a Application) Authorize(ctx context.Context, username, password string) (string, error) {
 	if len(password) > 72 {
 		return "", fmt.Errorf("password too long")
 	}
@@ -82,7 +80,7 @@ func (a Application) Authorize(username, password string) (string, error) {
 		Username:     username,
 		PasswordHash: string(hashedPassword),
 	}
-	user, err := a.db.CreateUser(context.Background(), userCreation)
+	user, err := a.db.CreateUser(ctx, userCreation)
 	if err != nil {
 		return "", err
 	}
@@ -93,7 +91,7 @@ func (a Application) Authorize(username, password string) (string, error) {
 	return token, nil
 }
 
-func (a Application) Authenticate(token string) (domain.User, error) {
+func (a Application) Authenticate(ctx context.Context, token string) (domain.User, error) {
 	tokenUser, err := a.token.Parse(token)
 	if err != nil {
 		return domain.User{}, fmt.Errorf("parcing tokens: %v", err)

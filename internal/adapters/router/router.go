@@ -45,7 +45,8 @@ func (r *Router) userInfo(w http.ResponseWriter, req *http.Request) {
 		WriteErrorResponse(w, http.StatusBadRequest, fmt.Errorf("internal server error"))
 		return
 	}
-	inventory, wallet, err := r.app.Info(user)
+	ctx := context.Background()
+	inventory, wallet, err := r.app.Info(ctx, user)
 	if err != nil {
 		WriteErrorResponse(w, http.StatusBadRequest, err)
 		return
@@ -65,7 +66,8 @@ func (r *Router) buyItem(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	item := req.PathValue("item")
-	err := r.app.BuyItem(user, item)
+	ctx := context.Background()
+	err := r.app.BuyItem(ctx, user, item)
 	if err != nil {
 		WriteErrorResponse(w, http.StatusBadRequest, err)
 		return
@@ -90,7 +92,8 @@ func (r *Router) sendCoin(w http.ResponseWriter, req *http.Request) {
 		WriteErrorResponse(w, http.StatusBadRequest, err)
 		return
 	}
-	_, err = r.app.SendCoin(user, info.Username, info.Amount)
+	ctx := context.Background()
+	_, err = r.app.SendCoin(ctx, user, info.Username, info.Amount)
 	if err != nil {
 		WriteErrorResponse(w, http.StatusBadRequest, err)
 		return
@@ -108,7 +111,8 @@ func (r *Router) auth(w http.ResponseWriter, req *http.Request) {
 	}
 	defer req.Body.Close()
 
-	token, err := r.app.Authorize(userData.Username, userData.Password)
+	ctx := context.Background()
+	token, err := r.app.Authorize(ctx, userData.Username, userData.Password)
 	if err != nil {
 		WriteErrorResponse(w, http.StatusBadRequest, err)
 		return
