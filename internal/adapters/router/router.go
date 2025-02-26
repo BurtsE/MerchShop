@@ -7,7 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
+
+const timeout = 200 * time.Millisecond
 
 type Router struct {
 	app  ports.APIPort
@@ -45,7 +48,8 @@ func (r *Router) userInfo(w http.ResponseWriter, req *http.Request) {
 		WriteErrorResponse(w, http.StatusBadRequest, fmt.Errorf("internal server error"))
 		return
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	inventory, wallet, err := r.app.Info(ctx, user)
 	if err != nil {
 		WriteErrorResponse(w, http.StatusBadRequest, err)
@@ -66,7 +70,8 @@ func (r *Router) buyItem(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	item := req.PathValue("item")
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	err := r.app.BuyItem(ctx, user, item)
 	if err != nil {
 		WriteErrorResponse(w, http.StatusBadRequest, err)
@@ -92,7 +97,8 @@ func (r *Router) sendCoin(w http.ResponseWriter, req *http.Request) {
 		WriteErrorResponse(w, http.StatusBadRequest, err)
 		return
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	_, err = r.app.SendCoin(ctx, user, info.Username, info.Amount)
 	if err != nil {
 		WriteErrorResponse(w, http.StatusBadRequest, err)
@@ -111,7 +117,8 @@ func (r *Router) auth(w http.ResponseWriter, req *http.Request) {
 	}
 	defer req.Body.Close()
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	token, err := r.app.Authorize(ctx, userData.Username, userData.Password)
 	if err != nil {
 		WriteErrorResponse(w, http.StatusBadRequest, err)
