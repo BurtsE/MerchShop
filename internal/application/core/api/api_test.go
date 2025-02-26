@@ -92,7 +92,7 @@ func Test_Info(t *testing.T) {
 	db.On("UserInventory", mock.Anything, mock.Anything).Return(inventory, nil)
 	db.On("UserWallet", mock.Anything, mock.Anything).Return(ops, nil)
 	application := NewApplication(db, tokens.NewTokenHandler([]byte("secret_key")))
-	inv, operations, err := application.Info(user)
+	inv, operations, err := application.Info(nil, user)
 	assert.Nil(t, err)
 	assert.Equal(t, inventory, inv)
 	assert.Equal(t, ops, operations)
@@ -127,7 +127,7 @@ func Test_SendCoin(t *testing.T) {
 	db.On("SendCoins", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(uint(3), nil)
 	application := NewApplication(db, tokens.NewTokenHandler([]byte("secret_key")))
 
-	op, err := application.SendCoin(sender, receiver.Username, 50)
+	op, err := application.SendCoin(nil, sender, receiver.Username, 50)
 	assert.Nil(t, err)
 	assert.Equal(t, uint(3), op.ID)
 	assert.Equal(t, sender, op.Sender)
@@ -139,7 +139,7 @@ func Test_SendCoin_DBError(t *testing.T) {
 	dbErr := fmt.Errorf("database error error")
 	db.On("UserByName", mock.Anything, mock.Anything).Return(domain.User{}, dbErr)
 	application := NewApplication(db, tokens.NewTokenHandler([]byte("secret_key")))
-	_, err := application.SendCoin(domain.User{}, "some-user", 50)
+	_, err := application.SendCoin(nil, domain.User{}, "some-user", 50)
 	assert.Error(t, err)
 }
 
@@ -149,7 +149,7 @@ func Test_SendCoin_DBError2(t *testing.T) {
 	db.On("UserByName", mock.Anything, mock.Anything).Return(domain.User{}, nil)
 	db.On("SendCoins", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(uint(0), dbErr)
 	application := NewApplication(db, tokens.NewTokenHandler([]byte("secret_key")))
-	_, err := application.SendCoin(domain.User{}, "some-user", 50)
+	_, err := application.SendCoin(nil, domain.User{}, "some-user", 50)
 	assert.Error(t, err)
 }
 
@@ -157,7 +157,7 @@ func Test_BuyItem(t *testing.T) {
 	db := new(mockedDb)
 	db.On("BuyItem", mock.Anything, mock.Anything, mock.Anything).Return(uint(3), nil)
 	application := NewApplication(db, tokens.NewTokenHandler([]byte("secret_key")))
-	err := application.BuyItem(domain.User{}, "t-shirt")
+	err := application.BuyItem(nil, domain.User{}, "t-shirt")
 	assert.Nil(t, err)
 }
 
@@ -166,7 +166,7 @@ func Test_BuyItem_DBError(t *testing.T) {
 	dbErr := fmt.Errorf("database error")
 	db.On("BuyItem", mock.Anything, mock.Anything, mock.Anything).Return(uint(0), dbErr)
 	application := NewApplication(db, tokens.NewTokenHandler([]byte("secret_key")))
-	err := application.BuyItem(domain.User{}, "t-shirt")
+	err := application.BuyItem(nil, domain.User{}, "t-shirt")
 	assert.Error(t, err)
 }
 
@@ -174,7 +174,7 @@ func Test_Authorize(t *testing.T) {
 	db := new(mockedDb)
 	db.On("CreateUser", mock.Anything, mock.Anything).Return(domain.User{Username: "username"}, nil)
 	application := NewApplication(db, tokens.NewTokenHandler([]byte("secret_key")))
-	_, err := application.Authorize("username", "password")
+	_, err := application.Authorize(nil, "username", "password")
 	assert.Nil(t, err)
 }
 
@@ -183,7 +183,7 @@ func Test_Authorize_DBError(t *testing.T) {
 	dbErr := fmt.Errorf("database error")
 	db.On("CreateUser", mock.Anything, mock.Anything).Return(domain.User{Username: "username"}, dbErr)
 	application := NewApplication(db, tokens.NewTokenHandler([]byte("secret_key")))
-	_, err := application.Authorize("username", "password")
+	_, err := application.Authorize(nil, "username", "password")
 	assert.Error(t, err)
 }
 
@@ -191,7 +191,7 @@ func Test_Authorize_PasswordError(t *testing.T) {
 	db := new(mockedDb)
 	longPassword := "password should not contain more than 72 bytes because of hashing algorithms"
 	application := NewApplication(db, tokens.NewTokenHandler([]byte("secret_key")))
-	_, err := application.Authorize("username", longPassword)
+	_, err := application.Authorize(nil, "username", longPassword)
 	assert.Error(t, err)
 }
 
@@ -208,7 +208,7 @@ func Test_Authenticate(t *testing.T) {
 	token, err := tokenHandler.Create(user)
 
 	application := NewApplication(db, tokenHandler)
-	resultUser, err := application.Authenticate(token)
+	resultUser, err := application.Authenticate(nil, token)
 	assert.Nil(t, err)
 	assert.Equal(t, user, resultUser)
 }
@@ -225,7 +225,7 @@ func Test_Authenticate_MalformedToken(t *testing.T) {
 	db.On("User", mock.Anything, mock.Anything).Return(user, nil)
 
 	application := NewApplication(db, tokenHandler)
-	_, err := application.Authenticate("malformed token")
+	_, err := application.Authenticate(nil, "malformed token")
 	assert.Error(t, err)
 }
 
@@ -242,6 +242,6 @@ func Test_Authenticate_DBError(t *testing.T) {
 	db.On("User", mock.Anything, mock.Anything).Return(user, dbError)
 	token, _ := tokenHandler.Create(user)
 	application := NewApplication(db, tokenHandler)
-	_, err := application.Authenticate(token)
+	_, err := application.Authenticate(nil, token)
 	assert.Error(t, err)
 }
