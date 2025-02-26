@@ -15,13 +15,15 @@ func (r *Router) WithAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		token := strings.TrimPrefix(authHeader, "Bearer ")
-		user, err := r.app.Authenticate(token)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		user, err := r.app.Authenticate(ctx, token)
 		if err != nil {
 			WriteErrorResponse(w, http.StatusBadRequest, err)
 			return
 		}
-		ctx := context.WithValue(req.Context(), "user", user)
-		req = req.WithContext(ctx)
+		contextWithUserValue := context.WithValue(req.Context(), "user", user)
+		req = req.WithContext(contextWithUserValue)
 		next.ServeHTTP(w, req)
 	}
 }

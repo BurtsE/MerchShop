@@ -2,6 +2,7 @@ package router
 
 import (
 	"MerchShop/internal/application/core/domain"
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -10,31 +11,31 @@ import (
 
 // MockApp представляет собой mock-объект для тестирования.
 type MockApp struct {
-	authenticateFunc func(token string) (domain.User, error)
+	authenticateFunc func(ctx context.Context, token string) (domain.User, error)
 }
 
-func (m *MockApp) Info(user domain.User) (domain.Inventory, []domain.WalletOperation, error) {
+func (m MockApp) Info(ctx context.Context, user domain.User) (domain.Inventory, []domain.WalletOperation, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m *MockApp) SendCoin(sender domain.User, receiverName string, amount int) (domain.WalletOperation, error) {
+func (m MockApp) SendCoin(ctx context.Context, sender domain.User, receiverName string, amount int) (domain.WalletOperation, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m *MockApp) BuyItem(user domain.User, item string) error {
+func (m MockApp) BuyItem(ctx context.Context, user domain.User, item string) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m *MockApp) Authorize(login, password string) (string, error) {
+func (m MockApp) Authorize(ctx context.Context, login, password string) (string, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m *MockApp) Authenticate(token string) (domain.User, error) {
-	return m.authenticateFunc(token)
+func (m MockApp) Authenticate(ctx context.Context, token string) (domain.User, error) {
+	return m.authenticateFunc(ctx, token)
 }
 
 // TestWithAuth проверяет различные сценарии работы middleware WithAuth.
@@ -42,7 +43,7 @@ func TestWithAuth(t *testing.T) {
 	tests := []struct {
 		name           string
 		authHeader     string
-		authenticateFn func(token string) (domain.User, error)
+		authenticateFn func(ctx context.Context, token string) (domain.User, error)
 		expectedStatus int
 		expectedBody   string
 	}{
@@ -54,16 +55,18 @@ func TestWithAuth(t *testing.T) {
 			expectedBody:   "{\"errors\":\"authorization header missing\"}\n",
 		},
 		{
-			name:           "Invalid Token",
-			authHeader:     "Bearer invalid-token",
-			authenticateFn: func(token string) (domain.User, error) { return domain.User{}, errors.New("invalid token") },
+			name:       "Invalid Token",
+			authHeader: "Bearer invalid-token",
+			authenticateFn: func(ctx context.Context, token string) (domain.User, error) {
+				return domain.User{}, errors.New("invalid token")
+			},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "{\"errors\":\"invalid token\"}\n",
 		},
 		{
 			name:           "Valid Token",
 			authHeader:     "Bearer valid-token",
-			authenticateFn: func(token string) (domain.User, error) { return domain.User{}, nil },
+			authenticateFn: func(ctx context.Context, token string) (domain.User, error) { return domain.User{}, nil },
 			expectedStatus: http.StatusOK,
 			expectedBody:   "OK",
 		},
