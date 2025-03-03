@@ -55,3 +55,5 @@
 * SECRET_KEY="my-secret-key"
 * ENV=development
 * APPLICATION_PORT=8080
+## **Для доступа к апи с еобходимостью авторизации необходим http заголовок Authorization вида:**
+Bearer {Токен}
