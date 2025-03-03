@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 )
@@ -20,15 +22,23 @@ type Router struct {
 
 func NewRouter(app ports.APIPort, port string) *Router {
 	r := &Router{app: app, port: port}
+	router := gin.Default()
 	r.srv = http.Server{
 		Addr:    fmt.Sprintf(":%s", port),
-		Handler: http.DefaultServeMux,
+		Handler: router,
 	}
-	http.Handle("GET /api/info", r.WithAuth(r.userInfo))
-	http.HandleFunc("GET /api/buy/{item}", r.WithAuth(r.buyItem))
-	http.HandleFunc("POST /api/sendCoin", r.WithAuth(r.sendCoin))
-	http.HandleFunc("POST /api/auth", r.auth)
-	//r.srv.Handler = Logger(r.srv.Handler)
+	authorizedGroup := router.Group("/api")
+	authorizedGroup.Use(r.WithAuth())
+	{
+		authorizedGroup.GET("/info", r.userInfo)
+		authorizedGroup.GET("/buy/:item", r.buyItem)
+		authorizedGroup.POST("/sendCoin", r.sendCoin)
+	}
+
+	unauthorizedGroup := router.Group("/api/auth")
+	{
+		unauthorizedGroup.POST("/", r.auth)
+	}
 	return r
 }
 
@@ -39,94 +49,100 @@ func (r *Router) Stop(ctx context.Context) error {
 	return r.srv.Shutdown(ctx)
 }
 
-func (r *Router) userInfo(w http.ResponseWriter, req *http.Request) {
+func (r *Router) userInfo(ctx *gin.Context) {
 	var (
 		user domain.User
-		ok   bool
 	)
-	if user, ok = req.Context().Value("user").(domain.User); !ok {
-		WriteErrorResponse(w, http.StatusBadRequest, fmt.Errorf("internal server error"))
+
+	val, ok := ctx.Get("user")
+	log.Println(val, ok)
+	if user, ok = val.(domain.User); !ok {
+		log.Println(user, "not okay")
+		ctx.JSON(400, gin.H{"error": "internal server error"})
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	log.Println(user.Username, ok)
+	apictx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	inventory, wallet, err := r.app.Info(ctx, user)
+	inventory, wallet, err := r.app.Info(apictx, user)
 	if err != nil {
-		WriteErrorResponse(w, http.StatusBadRequest, err)
+		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
+	log.Println(inventory, wallet, err)
 	user.Inventory = inventory
 	data := ConvertDomainToUserData(user, wallet)
-	json.NewEncoder(w).Encode(data)
+	ctx.JSON(200, data)
 }
 
-func (r *Router) buyItem(w http.ResponseWriter, req *http.Request) {
+func (r *Router) buyItem(ctx *gin.Context) {
 	var (
 		user domain.User
 		ok   bool
 	)
-	if user, ok = req.Context().Value("user").(domain.User); !ok {
-		WriteErrorResponse(w, http.StatusBadRequest, fmt.Errorf("internal server error"))
+	val, _ := ctx.Get("user")
+	if user, ok = val.(domain.User); !ok {
+		ctx.JSON(400, gin.H{"error": "internal server error"})
 		return
 	}
-	item := req.PathValue("item")
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	item := ctx.Param("item")
+	apictx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	err := r.app.BuyItem(ctx, user, item)
+	err := r.app.BuyItem(apictx, user, item)
 	if err != nil {
-		WriteErrorResponse(w, http.StatusBadRequest, err)
+		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 }
 
-func (r *Router) sendCoin(w http.ResponseWriter, req *http.Request) {
+func (r *Router) sendCoin(ctx *gin.Context) {
 	var (
 		user domain.User
 		ok   bool
 	)
-	if user, ok = req.Context().Value("user").(domain.User); !ok {
-		WriteErrorResponse(w, http.StatusBadRequest, fmt.Errorf("internal server error"))
+	val, _ := ctx.Get("user")
+	if user, ok = val.(domain.User); !ok {
+		ctx.JSON(400, gin.H{"error": "internal server error"})
 		return
 	}
 
 	info := SendCoinsInfo{}
-	decoder := json.NewDecoder(req.Body)
+	decoder := json.NewDecoder(ctx.Request.Body)
 
 	err := decoder.Decode(&info)
 	if err != nil {
-		WriteErrorResponse(w, http.StatusBadRequest, err)
+		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer ctx.Request.Body.Close()
+	apictx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	_, err = r.app.SendCoin(ctx, user, info.Username, info.Amount)
+	_, err = r.app.SendCoin(apictx, user, info.Username, info.Amount)
 	if err != nil {
-		WriteErrorResponse(w, http.StatusBadRequest, err)
+		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 }
 
-func (r *Router) auth(w http.ResponseWriter, req *http.Request) {
+func (r *Router) auth(ctx *gin.Context) {
 	userData := UserCredentials{}
-	decoder := json.NewDecoder(req.Body)
-
+	decoder := json.NewDecoder(ctx.Request.Body)
 	err := decoder.Decode(&userData)
 	if err != nil {
-		WriteErrorResponse(w, http.StatusBadRequest, err)
+		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-	defer req.Body.Close()
+	defer ctx.Request.Body.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	apictx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	token, err := r.app.Authorize(ctx, userData.Username, userData.Password)
+	token, err := r.app.Authorize(apictx, userData.Username, userData.Password)
 	if err != nil {
-		WriteErrorResponse(w, http.StatusBadRequest, err)
+		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 	response := map[string]string{
 		"token": token,
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	ctx.JSON(200, response)
 }

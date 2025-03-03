@@ -2,28 +2,26 @@ package router
 
 import (
 	"context"
-	"fmt"
-	"net/http"
+	"github.com/gin-gonic/gin"
 	"strings"
 )
 
-func (r *Router) WithAuth(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		authHeader := req.Header.Get("Authorization")
+func (r *Router) WithAuth() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		authHeader := ctx.GetHeader("Authorization")
 		if authHeader == "" {
-			WriteErrorResponse(w, http.StatusBadRequest, fmt.Errorf("authorization header missing"))
+			ctx.AbortWithStatusJSON(400, gin.H{"errors": "authorization header missing"})
 			return
 		}
 		token := strings.TrimPrefix(authHeader, "Bearer ")
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		apictx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		user, err := r.app.Authenticate(ctx, token)
+		user, err := r.app.Authenticate(apictx, token)
 		if err != nil {
-			WriteErrorResponse(w, http.StatusBadRequest, err)
+			ctx.AbortWithStatusJSON(400, gin.H{"errors": err.Error()})
 			return
 		}
-		contextWithUserValue := context.WithValue(req.Context(), "user", user)
-		req = req.WithContext(contextWithUserValue)
-		next.ServeHTTP(w, req)
+		ctx.Set("user", user)
+		ctx.Next()
 	}
 }

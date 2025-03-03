@@ -4,6 +4,7 @@ import (
 	"MerchShop/internal/application/core/domain"
 	"context"
 	"errors"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -52,7 +53,7 @@ func TestWithAuth(t *testing.T) {
 			authHeader:     "",
 			authenticateFn: nil,
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "{\"errors\":\"authorization header missing\"}\n",
+			expectedBody:   "{\"errors\":\"authorization header missing\"}",
 		},
 		{
 			name:       "Invalid Token",
@@ -61,7 +62,7 @@ func TestWithAuth(t *testing.T) {
 				return domain.User{}, errors.New("invalid token")
 			},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "{\"errors\":\"invalid token\"}\n",
+			expectedBody:   "{\"errors\":\"invalid token\"}",
 		},
 		{
 			name:           "Valid Token",
@@ -71,16 +72,31 @@ func TestWithAuth(t *testing.T) {
 			expectedBody:   "OK",
 		},
 	}
-
+	rtr := gin.Default()
+	router := &Router{
+		srv: http.Server{
+			Handler: rtr,
+		},
+	}
+	rtr.Use(router.WithAuth())
+	// Создаем тестовый обработчик, который будет вызван после WithAuth
+	nextHandler := func(ctx *gin.Context) {
+		// Проверяем, что пользователь добавлен в контекст
+		user, _ := ctx.Get("user")
+		if user == nil {
+			t.Error("User not found in context")
+		}
+		ctx.Writer.WriteHeader(http.StatusOK)
+		ctx.Writer.Write([]byte("OK"))
+	}
+	rtr.GET("/", nextHandler)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Создаем mock-объект для приложения
 			mockApp := &MockApp{
 				authenticateFunc: tt.authenticateFn,
 			}
-
-			// Создаем тестовый роутер
-			router := &Router{app: mockApp}
+			router.app = mockApp
 
 			// Создаем тестовый HTTP-запрос
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -90,21 +106,8 @@ func TestWithAuth(t *testing.T) {
 
 			// Создаем ResponseRecorder для записи ответа
 			rr := httptest.NewRecorder()
-
 			// Создаем тестовый обработчик, который будет вызван после WithAuth
-			nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Проверяем, что пользователь добавлен в контекст
-				user := r.Context().Value("user")
-				if user == nil {
-					t.Error("User not found in context")
-				}
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("OK"))
-			})
-
-			// Вызываем middleware WithAuth
-			handler := router.WithAuth(nextHandler)
-			handler.ServeHTTP(rr, req)
+			rtr.ServeHTTP(rr, req)
 
 			// Проверяем статус код
 			if rr.Code != tt.expectedStatus {
