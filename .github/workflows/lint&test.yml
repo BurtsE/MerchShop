@@ -1,0 +1,113 @@
+name: Lint and Test
+
+on:
+  push:
+    branches: [ main ]
+    tags-ignore: ['*']
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23.1
+
+      - name: Install protoc
+        run: |
+          curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v28.1/protoc-28.1-linux-x86_64.zip
+          unzip protoc-28.1-linux-x86_64.zip -d $HOME/protoc
+          echo "$HOME/protoc/bin" >> $GITHUB_PATH
+
+      - name: Install other dependencies
+        run: |
+          go install golang.org/x/tools/cmd/goimports@latest
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          go install github.com/segmentio/golines@latest
+          go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Lint code
+        run: |
+          unformatted=$(go fmt ./...)
+          if [ -n "$unformatted" ]; then 
+            echo "These files are not formatted with 'go fmt': $unformatted"
+            exit 1
+          fi
+          unformatted=$(find . -name '*.go' ! -path "./generated/*" -exec goimports -local go-echo-template/ -l {} +)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not formatted with 'goimports': $unformatted"
+            exit 1
+          fi
+          unformatted=$(find . -name '*.go' ! -path "./generated/*" -exec golines -w {} -m 120 \;)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not formatted with 'golines': $unformatted"
+            exit 1
+          fi
+          golangci-lint run ./...
+
+      - name: Check go generate
+        run: ./check-go-generate.sh
+        shell: bash
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
+      postgres:
+        image: postgres:latest
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23.1
+
+      - name: Apply migrations
+        run: go run ./cmd/migrator/main.go
+        env:
+          POSTGRES_HOSTS: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DATABASE: postgres
+          POSTGRES_SSL: false
+          POSTGRES_MIGRATION_PATH: "file://migrations"
+
+      - name: Run tests
+        # TODO: fix test execution in 1 thread
+        run: go test -p=1 -coverpkg=./... -count=1 -coverprofile=coverage.out ./...
+        env:
+          REDIS_ADDRESS: localhost:6379
+          POSTGRES_HOSTS: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DATABASE: postgres
+          POSTGRES_SSL: false
+
+      - name: Upload coverage to GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
