@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 )
@@ -55,13 +54,10 @@ func (r *Router) userInfo(ctx *gin.Context) {
 	)
 
 	val, ok := ctx.Get("user")
-	log.Println(val, ok)
 	if user, ok = val.(domain.User); !ok {
-		log.Println(user, "not okay")
 		ctx.JSON(400, gin.H{"error": "internal server error"})
 		return
 	}
-	log.Println(user.Username, ok)
 	apictx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	inventory, wallet, err := r.app.Info(apictx, user)
@@ -69,7 +65,6 @@ func (r *Router) userInfo(ctx *gin.Context) {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-	log.Println(inventory, wallet, err)
 	user.Inventory = inventory
 	data := ConvertDomainToUserData(user, wallet)
 	ctx.JSON(200, data)
